@@ -1,0 +1,88 @@
+BertModel的输出参数：
+    last_hidden_state:
+        这是模型最后一层的隐藏状态。
+        对于每个输入token（例如，单词或子词），它都会有一个对应的768维（取决于模型的版本和配置）的向量表示。
+        这个输出通常用于许多下游任务，如文本分类、命名实体识别等。
+        对于文本分类任务，人们通常只使用第一个token（通常是[CLS]token）的隐藏状态，因为它被设计为代表整个输入序列的聚合信息。
+        
+    pooler_output:
+        这是经过池化操作的最后一层的隐藏状态。
+        具体来说，它是经过一个全连接层和一个tanh激活函数处理的[CLS] token的隐藏状态。
+        pooler_output经常被用在下游任务中，特别是二分类任务中（例如句子对分类）。
+        
+    hidden_states (可选):
+        这是模型中所有层的隐藏状态。
+        hidden_states是一个元组，其中包含了从第一层到最后一层的每一层的隐藏状态。
+        每个隐藏状态都是对输入序列的一个表示，但是它们来自于模型的不同层。
+        这对于理解和可视化模型的工作原理非常有用。
+        
+    attentions (可选):
+        这是模型的注意力权重。
+        attentions同样是一个元组，它包含了模型每一层的注意力权重。
+        注意力权重可以告诉我们模型在处理输入时哪些部分是重要的。
+        这对于解释模型的决策非常有价值。
+        
+    要获取hidden_states和attentions，需要在实例化模型时将output_hidden_states和output_attentions参数设置为True。例如：
+        from transformers import BertModel
+        model = BertModel.from_pretrained('bert-base-uncased', 
+                                          output_hidden_states=True, 
+                                          output_attentions=True)
+    这些输出使得BERT非常灵活，可以适应多种不同的NLP任务和分析需求。
+    
+BertModel各个输出参数的形状解释：
+    last_hidden_state:
+        形状: [batch_size, sequence_length, hidden_size]
+        对于bert-base-uncased，hidden_size通常是768。
+        sequence_length是输入序列的长度，这取决于输入数据。
+        batch_size是批量中的序列数。
+
+    pooler_output:
+        形状: [batch_size, hidden_size]
+        这是基于[CLS] token的隐藏状态，经过了一个全连接层和tanh激活函数。
+        对于bert-base-uncased，hidden_size是768。
+
+    hidden_states (如果启用):
+        形状: tuple，长度等于模型层数+1（包括初始的词嵌入层），每层的形状是[batch_size, sequence_length, hidden_size]。
+        对于bert-base-uncased，有12个Transformer层，所以hidden_states是13个元素的元组（包括初始的词嵌入层）。
+
+    attentions (如果启用):
+        形状: tuple，长度等于模型层数，每个元素的形状是[batch_size, num_attention_heads, sequence_length, sequence_length]。
+        num_attention_heads是注意力头的数量。对于bert-base-uncased，通常是12。
+    
+BertForSequenceClassification模型大致结构：
+    class BertForSequenceClassification(BertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.num_labels = config.num_labels
+        self.bert = BertModel(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.init_weights()
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        outputs = self.bert(    # 这里的bert就是BertModel，下面的模型输出output对应上面四个参数
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        pooled_output = outputs[1]
+        pooled_output = self.dropout(pooled_output)  # 接一个dropout层
+        logits = self.classifier(pooled_output)  # 接一个全连接层用于分类
+
