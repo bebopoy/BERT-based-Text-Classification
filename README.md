@@ -1,0 +1,2 @@
+# aliyuntianchi-ncaa2024
+天池大数据竞赛NCAA2024-中文糖尿病问题分类notebook
